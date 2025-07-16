@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Aplicação principal
+  tiktok-live-ai:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - tiktok-network
+
+  # Redis para cache e sessões
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - tiktok-network
+
+  # PostgreSQL (opcional)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=tiktok_live_ai
+      - POSTGRES_USER=tiktok_user
+      - POSTGRES_PASSWORD=tiktok_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - tiktok-network
+
+  # Nginx para proxy reverso (produção)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - tiktok-live-ai
+    restart: unless-stopped
+    networks:
+      - tiktok-network
+    profiles:
+      - production
+
+volumes:
+  redis-data:
+  postgres-data:
+
+networks:
+  tiktok-network:
+    driver: bridge 
